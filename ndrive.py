@@ -3,6 +3,7 @@ __email__ = 'lynnn.hong@gmail.com'
 __date__ = '5/31/2016'
 
 
+import logging
 import os
 import re
 import binascii
@@ -151,7 +152,7 @@ class Ndrive(object):
             self.check_status()
 
         file_stat = os.fstat(fp.fileno())
-        print(datetime.datetime.fromtimestamp(file_stat.st_mtime))
+        logging.debug(datetime.datetime.fromtimestamp(file_stat.st_mtime))
 
         resp = self._s.post('http://ndrive2.naver.com/CheckUpload.ndrive', data={
             'userid': self._userid,
@@ -164,7 +165,7 @@ class Ndrive(object):
         data = resp.json()
         self._check_error(data)
 
-        print(data)
+        logging.info(data)
 
         return True
 
