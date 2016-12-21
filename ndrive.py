@@ -75,7 +75,8 @@ class Ndrive(object):
         DIR = 'collection'
         FILE = 'property'
 
-    def __init__(self, userid, npw):
+    def __init__(self, userid, npw, logger=logging):
+        self.logger = logger
         self._userid = userid
         self._useridx = None
         self._s = naver_session(userid, npw)
@@ -152,7 +153,7 @@ class Ndrive(object):
             self.check_status()
 
         file_stat = os.fstat(fp.fileno())
-        logging.debug(datetime.datetime.fromtimestamp(file_stat.st_mtime))
+        self.logger.debug(datetime.datetime.fromtimestamp(file_stat.st_mtime))
 
         resp = self._s.post('http://ndrive2.naver.com/CheckUpload.ndrive', data={
             'userid': self._userid,
@@ -165,7 +166,7 @@ class Ndrive(object):
         data = resp.json()
         self._check_error(data)
 
-        logging.info(data)
+        self.logger.info(data)
 
         return True
 

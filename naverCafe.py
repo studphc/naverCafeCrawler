@@ -21,8 +21,8 @@ class NaverCafe(CafeCrawler):
         self.logger = logger
         self.cnfDict = cnfDict
         self.mysql = dbConnection
-        self.nd = Ndrive(self.cnfDict['naverid'], self.cnfDict['naverpw'])
-        self.r = Req(self.nd)
+        self.nd = Ndrive(self.cnfDict['naverid'], self.cnfDict['naverpw'], logger)
+        self.r = Req(self.nd, logger)
         self.main_url = "http://m.cafe.naver.com%s"
         self.board_id_list = list()
         self.board_url_list = list()
