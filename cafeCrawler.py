@@ -6,6 +6,7 @@ from datetime import datetime
 import time
 import os
 import logging
+import logging.handlers
 
 
 class CafeCrawler():
@@ -42,16 +43,21 @@ class CafeCrawler():
         os.environ['TZ'] = self.cnfDict['timeZone']
         time.tzset()
         # logger setting
-        fomatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
-        fileHandler = logging.FileHandler('./log/naver_cafe.log')
+        if not os.path.exists('./log/'):
+            os.makedirs('./log/')
+        fileMaxByte = 1024 * 1024 * 100  # 100MB
+        filename = './log/naver_cafe.log'
+        fileHandler = logging.handlers.RotatingFileHandler(filename, maxBytes=fileMaxByte, backupCount=10)
+        formatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
         streamHandler = logging.StreamHandler()
-        fileHandler.setFormatter(fomatter)
-        streamHandler.setFormatter(fomatter)
+        fileHandler.setFormatter(formatter)
+        streamHandler.setFormatter(formatter)
         self.logger.addHandler(fileHandler)
         self.logger.addHandler(streamHandler)
-        self.logger.setLevel(eval("logging.%s" % self.cnfDict['log_level']))
-        logging.info("Finish setting logging level as %s..." % self.cnfDict['log_level'])
-        logging.info("Finish reading configuration file...")
+        #self.logger.setLevel(eval("logging.%s" % self.cnfDict['log_level']))
+        self.logger.setLevel(logging.DEBUG)
+        #logging.info("Finish setting logging level as %s..." % self.cnfDict['log_level'])
+        self.logger.info("Finish reading configuration file...")
 
     def connect_db(self, dbConfFile, dbSchemaFile):
         from naverCafeCrawler.mysqlConnector import Mysql
@@ -61,23 +67,23 @@ class CafeCrawler():
                     elem = line.strip().strip("\n").split("=", 1)
                     self.dbCnfDict[elem[0]] = elem[1]
         self.dbCnfDict['project'] = self.cnfDict['project']
-        self.mysql = Mysql()
+        self.mysql = Mysql(self.logger)
         self.mysql.connect_db(self.dbCnfDict, dbSchemaFile)
-        logging.info("Finish connecting to database...")
+        self.logger.info("Finish connecting to database...")
 
     def start_work(self):
         from naverCafeCrawler.naverCafe import NaverCafe
-        c = NaverCafe(self.cnfDict, self.mysql)
+        c = NaverCafe(self.cnfDict, self.mysql, self.logger)
         if 'query' in self.cnfDict.keys():
             for query in self.cnfDict['query']:
-                logging.warning("\nStart searching naver cafe with query '(%s)'..." % query)
+                self.logger.warning("\nStart searching naver cafe with query '(%s)'..." % query)
                 #####################c.search_cafe(query)
-                logging.warning("\nFinish with query '(%s)'...\n=============================\n" % query)
+                self.logger.warning("\nFinish with query '(%s)'...\n=============================\n" % query)
         else:
-            logging.warning("\nThere's no query term. Start trying collect all bulletin board...")
+            self.logger.warning("\nThere's no query term. Start trying collect all bulletin board...")
             if 'boardURL' not in self.cnfDict.keys():
-                logging.critical("There must be 'boardURL' information in the main.cnf file. Stop processing...")
+                self.logger.critical("There must be 'boardURL' information in the main.cnf file. Stop processing...")
             else:
-                logging.warning("Start searching....")
+                self.logger.warning("Start searching....")
                 c.search_board()
-                logging.warning("\nFinish on board...\n=============================\n")
+                self.logger.warning("\nFinish on board...\n=============================\n")

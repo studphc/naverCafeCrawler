@@ -5,7 +5,6 @@ __date__ = '5/31/2016'
 import re
 import time
 from datetime import datetime
-import logging
 import json
 import math
 import html
@@ -17,8 +16,9 @@ from naverCafeCrawler.requestsHandler import Req
 class NaverCafe(CafeCrawler):
     # represent NAVER CAFE crawler
 
-    def __init__(self, cnfDict, dbConnection):
+    def __init__(self, cnfDict, dbConnection, logger):
         CafeCrawler.__init__(self)
+        self.logger = logger
         self.cnfDict = cnfDict
         self.mysql = dbConnection
         self.nd = Ndrive(self.cnfDict['naverid'], self.cnfDict['naverpw'])
@@ -31,6 +31,7 @@ class NaverCafe(CafeCrawler):
         self.article_request_url = self.main_url % "/ArticleRead.nhn?clubid=%s&page=1&articleid=%s"
         self.comment_request_url = "http://cafe.naver.com/CommentView.nhn?search.clubid=%s&search.menuid=%s&search.articleid=%s&search.page=%i"
         self.min_article_id = int(self.cnfDict['min_article_id'])
+        self.my_min_article_id = None
         self.min_article_id_list = list()
         self.stop = False
         self.start_date = datetime.strptime(self.cnfDict['start_date']+" 00:00", "%Y-%m-%d %H:%M")
@@ -41,7 +42,7 @@ class NaverCafe(CafeCrawler):
         err_no, res = self.r.access_page(self.comment_request_url % (self.cafe_id, board_id, article_id, page),
                                          self.cnfDict['retry'], isSoup=False)
         if err_no != 1:
-            logging.error("Error comment id: %s" % article_id)
+            self.logger.error("Error comment id: %s" % article_id)
         else:
             c_cnt = 0
             sql_value_part = "(%s, %s, %s, %s, %s, %s, %s, %s, %s),"
@@ -49,7 +50,7 @@ class NaverCafe(CafeCrawler):
             j = json.loads(res.strip())
             total_cnt = j['result']['totalCount']
             if total_cnt == 0:
-                logging.warning("There's no comment...pass...(%s)" % article_id)
+                self.logger.warning("There's no comment...pass...(%s)" % article_id)
             else:
                 while page <= math.ceil(total_cnt/100):
                     for c in j['result']['list']:
@@ -77,7 +78,7 @@ class NaverCafe(CafeCrawler):
             article_id = re.search(r"articleid=(\d+)", u).group(1)
             err_no, soup = self.r.access_page(self.main_url % u, self.cnfDict['retry'])
             if err_no != 1:
-                logging.error("Error article url: %s" % u)
+                self.logger.error("Error article url: %s" % u)
             else:
                 title_part = soup.find("div", {"class": "post_title"})
                 try:
@@ -90,11 +91,13 @@ class NaverCafe(CafeCrawler):
                 a_datetime = datetime.strptime(a_datetime_str, "%Y.%m.%d. %H:%M")
                 a_title = title_part.find("h2").text.strip()
                 if a_datetime > self.end_date:
-                    logging.warning("After end date range. skip...(Title: %s)" % a_title)
+                    self.logger.warning("After end date range. skip...(Title: %s)" % a_title)
                 else:
                     if a_datetime < self.start_date or int(article_id) < self.min_article_id:
+                        self.logger.debug(article_id)
+                        self.logger.debug(self.min_article_id)
                         self.stop = True
-                        logging.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
+                        self.logger.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
                         break
                     else:
                         m_id = re.search(r"&memberId=(.+)", title_part.find("a", {"class": "nick"})['href']).group(1)
@@ -106,22 +109,22 @@ class NaverCafe(CafeCrawler):
                         self.get_comment(article_id, menuid)
                         idx += 1
                         time.sleep(0.5)
-            self.min_article_id = int(article_id)
-        logging.warning("Finish %i articles..." % idx)
+            self.my_min_article_id = int(article_id)
+        self.logger.warning("Finish %i articles..." % idx)
 
     def get_article2(self, article_id):
         return_value = False
         err_no, soup = self.r.access_page(self.article_request_url % (self.cafe_id, article_id),
                                           self.cnfDict['retry'])
         if err_no != 1:
-            logging.error("Error article id: %s" % article_id)
+            self.logger.error("Error article id: %s" % article_id)
         else:
             title_part = soup.find("div", {"class": "post_title"})
             try:
                 menuid = re.search(r"&search\.menuid=(\d+)", title_part.find("a", {"class": "tit_menu"})['href']).group(1)
             except AttributeError:
                 # not valid article
-                self.min_article_id = int(article_id)
+                self.my_min_article_id = int(article_id)
                 return False
             if menuid in self.board_id_list:
                 a_datetime_str = title_part.find("span", {"class": "date font_l"}).text
@@ -129,11 +132,11 @@ class NaverCafe(CafeCrawler):
                 a_datetime = datetime.strptime(a_datetime_str, "%Y.%m.%d. %H:%M")
                 a_title = title_part.find("h2").text.strip()
                 if a_datetime > self.end_date:
-                    logging.warning("After end date range. skip...(Title: %s)" % a_title)
+                    self.logger.warning("After end date range. skip...(Title: %s)" % a_title)
                 else:
                     if a_datetime < self.start_date or article_id < self.min_article_id:
                         self.stop = True
-                        logging.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
+                        self.logger.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
                     else:
                         m_id = re.search(r"&memberId=(.+)", title_part.find("a", {"class": "nick"})['href']).group(1)
                         m_nick = re.search(r"(.+)\(.+\)", title_part.find("a", {"class": "nick"}).text).group(1)
@@ -143,7 +146,7 @@ class NaverCafe(CafeCrawler):
                                                    a_title, a_datetime, m_id, m_nick, view_cnt, a_body))
                         self.get_comment(article_id, menuid)
                         return_value = True
-        self.min_article_id = int(article_id)
+        self.my_min_article_id = int(article_id)
         time.sleep(1)
         return return_value
 
@@ -169,7 +172,7 @@ class NaverCafe(CafeCrawler):
         return re.sub(r"\s+", " ", return_string)
 
     def search_board(self):
-        logging.info("Start searching cafe board...")
+        self.logger.info("Start searching cafe board...")
         for url in self.cnfDict['boardURL']:
             self.cafe_id = re.search(r"search\.clubid=(\d+)&", url).group(1)
             b_id = re.search(r"search\.menuid=(\d+)&", url).group(1)
@@ -178,7 +181,7 @@ class NaverCafe(CafeCrawler):
             self.board_url_list.append(b_url)
             err_no, soup = self.r.access_page(b_url, self.cnfDict['retry']+2)
             if err_no != 1:
-                logging.critical("Error(from the start)...Stop...")
+                self.logger.critical("Error(from the start)...Stop...")
                 exit()
             else:
                 cafe_title = soup.find("title").text.strip()
@@ -191,7 +194,7 @@ class NaverCafe(CafeCrawler):
         ar_idx = 1
         url_idx = 0
         while url_idx < len(self.board_url_list):
-            logging.info("Start retrieving articles in the board id %s..." % self.board_id_list[url_idx])
+            self.logger.warning("Start retrieving articles in the board id %s..." % self.board_id_list[url_idx])
             page_idx = 1
             url_list = list()
             while page_idx <= 1000:
@@ -199,13 +202,13 @@ class NaverCafe(CafeCrawler):
                                                   (self.cafe_id, self.board_id_list[url_idx], page_idx),
                                                   self.cnfDict['retry']+1)
                 if err_no != 1:
-                    logging.error("Error page %i....Skip the page..." % page_idx)
+                    self.logger.error("Error page %i....Skip the page..." % page_idx)
                 else:
                     for li in soup.find_all("li"):
                         url_list.append(li.find("a", {"class": "link_item"})['href'])
                         ar_idx += 1
                     if url_list is []:          # there's no 1000 pages
-                        logging.error("There's no more posts...")
+                        self.logger.warning("There's no more posts...")
                         break
                     if page_idx % 10 == 0:
                         self.get_article(url_list)
@@ -215,24 +218,26 @@ class NaverCafe(CafeCrawler):
                         self.stop = False
                         break
                 page_idx += 1
-            self.min_article_id_list.append(self.min_article_id)
-            logging.info("Finish retrieving articles in the board id %s...Start retrieving additional articles..." %
+            self.min_article_id_list.append(self.my_min_article_id)
+            self.my_min_article_id = None
+            self.logger.info("Finish retrieving articles in the board id %s...Start retrieving additional articles..." %
                          self.board_id_list[url_idx])
             url_idx += 1
 
         if self.cnfDict['multi_board'] is True:
-            logging.info("Minimum article id" % self.min_article_id_list)
-            self.min_article_id = max(self.min_article_id_list)
+            self.logger.debug(self.min_article_id_list)
+            self.my_min_article_id = max(self.min_article_id_list)
+            self.logger.info("ID where task begin: %i" % self.my_min_article_id)
         if self.stop is False:
-            ch = 0
+            cnt = 0
             while True:
-                if ch % 500 == 0 and ch != 0:
-                    logging.info("Current location id: %i" % self.min_article_id)
+                if cnt % 500 == 0 and cnt != 0:
+                    self.logger.info("Current location id: %i" % self.my_min_article_id)
                     time.sleep(5)
                 if self.stop is True:
-                    logging.warning("The number of article: %i... Finished..." % ar_idx)
+                    self.logger.warning("The number of article: %i... Finished..." % ar_idx)
                     break
-                isOkay = self.get_article2(self.min_article_id - 1)
-                ch += 1
+                isOkay = self.get_article2(self.my_min_article_id - 1)
+                cnt += 1
                 if isOkay is True:
                     ar_idx += 1

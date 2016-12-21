@@ -3,15 +3,14 @@ __email__ = 'lynnn.hong@gmail.com'
 __date__ = '5/31/2016'
 
 import time
-import logging
 import pymysql
 
 
 class Mysql():
     # represent mysql connector
 
-    def __init__(self):
-        pass
+    def __init__(self, logger):
+        self.logger = logger
 
     def connect_db(self, dbCnfDict, dbSchemaFile):
         while True:
@@ -22,7 +21,7 @@ class Mysql():
                 self.cur.execute("SET NAMES utf8mb4")
                 break
             except:     # if it fails, create project db and try to connect again
-                logging.warning("Start creating database...")
+                self.logger.warning("Start creating database...")
                 schema = open(dbSchemaFile, "r").read()
                 cfg_dict = dict(host=dbCnfDict['host'], usr=dbCnfDict['usr'],
                                 pwd=dbCnfDict['pwd'], db='information_schema')
@@ -42,7 +41,7 @@ class Mysql():
         try:
             self.cur.execute(sql, varTuple)
         except pymysql.Error as e:
-            logging.critical(e)
+            self.logger.critical(e)
 
     def insert_cafe(self, cafe_id, cafe_name, cafe_title):
         sql = "INSERT INTO cafe VALUE(%s, %s, %s);"
