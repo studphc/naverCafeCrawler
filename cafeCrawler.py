@@ -29,6 +29,8 @@ class CafeCrawler():
                     elem = line.strip().strip("\n").split("=", 1)
                     if elem[0] in ['query', 'boardURL']:
                         self.cnfDict[elem[0]] = elem[1].strip("\"").split(";")
+                    elif elem[0] in ['log_file']:
+                        self.cnfDict[elem[0]] = elem[1].strip("\"")
                     elif elem[0] in ['multi_board']:
                         self.cnfDict[elem[0]] = eval(elem[1])
                     elif elem[0] in ['log_level']:
@@ -46,17 +48,19 @@ class CafeCrawler():
         if not os.path.exists('./log/'):
             os.makedirs('./log/')
         fileMaxByte = 1024 * 1024 * 100  # 100MB
-        filename = './log/naver_cafe.log'
-        fileHandler = logging.handlers.RotatingFileHandler(filename, maxBytes=fileMaxByte, backupCount=10)
+        time_format = "%y-%m-%d_%H-%M-%S"
+        formatted_now = datetime.now().strftime(time_format)
+        filename_split = self.cnfDict['log_file'].rsplit(".", 1)
+        file_path = './log/%s_%s.%s' % (filename_split[0], formatted_now, filename_split[1])
+        fileHandler = logging.handlers.RotatingFileHandler(file_path, maxBytes=fileMaxByte, backupCount=10)
         formatter = logging.Formatter('[%(levelname)s|%(filename)s:%(lineno)s] %(asctime)s > %(message)s')
         streamHandler = logging.StreamHandler()
         fileHandler.setFormatter(formatter)
         streamHandler.setFormatter(formatter)
         self.logger.addHandler(fileHandler)
-        self.logger.addHandler(streamHandler)
-        #self.logger.setLevel(eval("logging.%s" % self.cnfDict['log_level']))
-        self.logger.setLevel(logging.DEBUG)
-        #logging.info("Finish setting logging level as %s..." % self.cnfDict['log_level'])
+        #self.logger.addHandler(streamHandler)      # turn off stream logger
+        self.logger.setLevel(eval("logging.%s" % self.cnfDict['log_level']))
+        self.logger.info("Finish setting logging level as %s..." % self.cnfDict['log_level'])
         self.logger.info("Finish reading configuration file...")
 
     def connect_db(self, dbConfFile, dbSchemaFile):

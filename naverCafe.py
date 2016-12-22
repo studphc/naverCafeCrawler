@@ -226,7 +226,7 @@ class NaverCafe(CafeCrawler):
 
         if self.cnfDict['multi_board'] is True:
             self.logger.debug(self.min_article_id_list)
-            self.my_min_article_id = max(self.min_article_id_list)
+            self.my_min_article_id = max(x for x in self.min_article_id_list if x is not None)
             self.logger.info("ID where task begin: %i" % self.my_min_article_id)
         if self.stop is False:
             cnt = 0
