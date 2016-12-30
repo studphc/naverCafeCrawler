@@ -87,18 +87,21 @@ class NaverCafe(CafeCrawler):
                     # not valid article
                     continue
                 a_datetime_str = title_part.find("span", {"class": "date font_l"}).text
-                # 2016.06.07. 15:04
-                a_datetime = datetime.strptime(a_datetime_str, "%Y.%m.%d. %H:%M")
+                a_datetime = datetime.strptime(a_datetime_str, "%Y.%m.%d. %H:%M")   # 2016.06.07. 15:04
                 a_title = title_part.find("h2").text.strip()
                 if a_datetime > self.end_date:
                     self.logger.warning("After end date range. skip...(Title: %s)" % a_title)
                 else:
-                    if a_datetime < self.start_date or int(article_id) < self.min_article_id:
-                        self.logger.debug(article_id)
-                        self.logger.debug(self.min_article_id)
-                        self.stop = True
-                        self.logger.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
-                        break
+                    if int(article_id) < self.min_article_id:
+                        if self.cnfDict['min_update_date'] is not None and self.cnfDict['min_update_date'] < a_datetime:
+                            view_cnt = int(title_part.find("span", {"class": "no font_l"}).find("em").text)
+                            self.mysql.update_article(int(article_id), view_cnt)
+                        else:
+                            self.logger.debug("Article id: %s" % article_id)
+                            self.logger.debug("Maximum inserted article id: %i" % self.min_article_id)
+                            self.stop = True
+                            self.logger.warning("Stop at %s (Title: %s)" % (a_datetime_str, a_title))
+                            break
                     else:
                         m_id = re.search(r"&memberId=(.+)", title_part.find("a", {"class": "nick"})['href']).group(1)
                         m_nick = re.search(r"(.+)\(.+\)", title_part.find("a", {"class": "nick"}).text).group(1)

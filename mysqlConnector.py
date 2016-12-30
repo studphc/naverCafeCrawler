@@ -58,3 +58,12 @@ class Mysql():
     def insert_comments(self, sql_value_part, var_tuple):
         sql = "INSERT IGNORE INTO comments VALUES %s;" % sql_value_part
         self.insert_mysql(sql, var_tuple)
+
+    def update_article(self, a_id, update_value):
+        try:
+            self.cur.execute("UPDATE article SET a_viewcnt=%s WHERE a_id=%s;", (a_id, update_value))
+        except pymysql.Error as e:
+            self.logger.critical(e)
+
+    def get_max_inserted_id(self):
+        self.cur.execute("SELECT MAX(a_id) FROM article;")

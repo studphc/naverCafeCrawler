@@ -2,7 +2,7 @@ __author__ = 'Lynn'
 __email__ = 'lynnn.hong@gmail.com'
 __date__ = '5/31/2016'
 
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import os
 import logging
@@ -40,8 +40,10 @@ class CafeCrawler():
         self.cnfDict['retry'] = int(self.cnfDict['retry'])
         if "end_date" not in self.cnfDict.keys():
             self.cnfDict['end_date'] = str(datetime.now().date())
+        if "min_update_date" not in self.cnfDict.keys():
+            self.cnfDict['min_update_date'] = None
         else:
-            self.cnfDict['end_date'] = self.cnfDict['end_date']
+            self.cnfDict['min_update_date'] = datetime.now()-timedelta(days=int(self.cnfDict['min_update_date']))
         os.environ['TZ'] = self.cnfDict['timeZone']
         time.tzset()
         # logger setting
@@ -76,6 +78,14 @@ class CafeCrawler():
         self.logger.info("Finish connecting to database...")
 
     def start_work(self):
+        if 'min_article_id' not in self.cnfDict.keys():
+            self.mysql.get_max_inserted_id()
+            i = self.mysql.cur.fetchone()[0]
+            if i is None:
+                self.cnfDict['min_article_id'] = 0
+            else:
+                self.cnfDict['min_article_id'] = i
+
         from naverCafeCrawler.naverCafe import NaverCafe
         c = NaverCafe(self.cnfDict, self.mysql, self.logger)
         if 'query' in self.cnfDict.keys():
