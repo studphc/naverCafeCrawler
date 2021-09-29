@@ -12,7 +12,7 @@ from bs4 import element
 from naverCafeCrawler.ndrive import Ndrive
 from naverCafeCrawler.cafeCrawler import CafeCrawler
 from naverCafeCrawler.requestsHandler import Req
-
+//문서수정
 class NaverCafe(CafeCrawler):
     # represent NAVER CAFE crawler
 
